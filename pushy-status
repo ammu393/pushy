@@ -1,0 +1,149 @@
+#!/bin/dash
+
+# directory not found
+if [ ! -d .pushy ]; then
+    echo "pushy-status: error: pushy repository directory .pushy not found"
+    exit 1
+fi
+
+# Incorrect args
+if [ ! "$#" -eq 0 ]; then
+    echo "usage: pushy-status" 
+    exit 1
+fi
+
+num=-1
+
+# Get the curr branch
+branch=$(cat ".pushy/currBranches.txt")
+
+branchPath=".pushy/HEAD/$branch"
+
+
+if [ "$branchPath/commits.txt" = "" ]; then 
+    num=-1
+else  
+    # Get the last commit number
+    num=$(tail -1 "$branchPath/commits.txt" | cut -d ' ' -f1)
+fi
+
+
+# Get the root, index and repo directories
+rootDir="."
+indexDir="$branchPath/index"
+
+if [ $num -eq -1 ]; then
+    repoDir="$branchPath"
+else
+    repoDir="$branchPath/staged$num"
+fi
+allFiles=$(find "$rootDir" "$indexDir" "$repoDir" -maxdepth 1 -type f | grep -oP ".*/\K.*" | sort -u)
+
+
+for file in $allFiles
+do
+    isInRoot=false
+    isInIndex=false
+    isInRepo=false
+
+    if [ -f "$rootDir/$file" ]; then 
+        isInRoot=true 
+    fi
+    if [ -f "$indexDir/$file" ]; then 
+        isInIndex=true
+    fi
+    if [ -f "$repoDir/$file" ]; then 
+        isInRepo=true
+    fi
+
+    # Next, check whether files are different between root, index and repo
+    rootIndexDiff=false
+    rootRepoDiff=false
+    indexRepoDiff=false
+
+    if $isInRoot && $isInIndex && ! diff "$rootDir/$file" "$indexDir/$file" >/dev/null; then 
+        rootIndexDiff=true
+    fi
+    if $isInRoot && $isInRepo && ! diff "$rootDir/$file" "$repoDir/$file" >/dev/null; then 
+        rootRepoDiff=true
+    fi
+    if $isInIndex && $isInRepo && ! diff "$indexDir/$file" "$repoDir/$file" >/dev/null; then 
+        indexRepoDiff=true 
+    fi
+
+    if $isInRoot && ! $isInIndex && ! $isInRepo
+    then
+        echo "$file - untracked"
+        continue
+    fi
+
+    if ! $isInRoot && $isInIndex && ! $isInRepo
+    then 
+        echo "$file - added to index, file deleted"
+        continue
+    fi
+
+    if ! $isInRoot && ! $isInIndex && $isInRepo
+    then 
+        echo "$file - file deleted, deleted from index"
+        continue
+    fi
+
+    if $isInRoot && $isInIndex && ! $isInRepo && ! $rootIndexDiff
+    then 
+        echo "$file - added to index"
+        continue
+    fi
+
+    if $isInRoot && $isInIndex && ! $isInRepo && $rootIndexDiff
+    then 
+        echo "$file - added to index, file changed"
+        continue
+    fi
+
+    if $isInRoot && ! $isInIndex && $isInRepo
+    then
+        echo "$file - deleted from index"
+        continue
+    fi
+
+    if ! $isInRoot && $isInIndex && $isInRepo && ! $indexRepoDiff
+    then
+        echo "$file - file deleted"
+        continue
+    fi
+
+    if ! $isInRoot && $isInIndex && $isInRepo && $indexRepoDiff
+    then
+        echo "$file - file deleted, changes staged for commit"
+        continue
+    fi
+
+    if $isInRoot && $isInIndex && $isInRepo && ! $rootIndexDiff && ! $rootRepoDiff
+    then
+        echo "$file - same as repo"
+        continue
+    fi
+
+    if $isInRoot && $isInIndex && $isInRepo && $rootIndexDiff && ! $indexRepoDiff
+    then
+        echo "$file - file changed, changes not staged for commit"
+        continue
+    fi
+
+    if $isInRoot && $isInIndex && $isInRepo && $rootIndexDiff && $indexRepoDiff
+    then
+        echo "$file - file changed, different changes staged for commit"
+        continue
+    fi
+    
+    if $isInRoot && $isInIndex && $isInRepo && $indexRepoDiff
+    then
+        echo "$file - file changed, changes staged for commit"
+        continue
+    fi
+
+    # if none of the above cases is true - print an error - this shouldnt happen...
+    echo "error - no case matched"
+
+done

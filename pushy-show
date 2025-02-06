@@ -1,0 +1,49 @@
+#!/bin/dash
+
+if [ ! -d .pushy ]; then 
+    echo "pushy-show: error: pushy repository directory .pushy not found"
+    exit 1
+fi
+
+if [ $# = 0 ]; then 
+    echo "usage: pushy-show <commit>:<filename>"
+    exit 1
+fi
+
+if [ "$(echo "$1" | grep ":$")" = ":" ]; then
+    echo "pushy-show: error: invalid filename ''"
+    exit 1
+fi
+
+if [ "$(echo "$1" | grep ":")" = "" ]; then
+    echo "pushy-show: error: invalid object $1"
+    exit 1
+fi
+
+commitNum=$(echo "$1" | cut -d ':' -f1)
+fileName=$(echo "$1" | cut -d ':' -f2)
+
+branchPath=".pushy/HEAD/$(cat ".pushy/currBranches.txt")"
+
+if [ "$commitNum" = "" ]; then
+    if [ ! -f "$branchPath/index/$fileName" ]; then 
+        echo "pushy-show: error: '$fileName' not found in index"
+        exit 1
+    fi
+
+    cat  "$branchPath/index/$fileName"
+else 
+    if [ -d "$branchPath/staged$commitNum" ];then 
+        if [ ! -f "$branchPath/staged$commitNum/$fileName" ]; then
+            echo "pushy-show: error: '$fileName' not found in commit $commitNum"
+            exit 1
+        else
+            cat "$branchPath/staged$commitNum/$fileName"
+        fi
+    else
+        echo "pushy-show: error: unknown commit '$commitNum'"
+        exit 1
+    fi
+fi
+
+
