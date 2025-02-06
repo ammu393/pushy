@@ -1,0 +1,43 @@
+#!/bin/dash
+
+# checks if repo exists 
+
+if [ ! -d ".pushy" ]; then 
+    echo "pushy-add: error: pushy repository directory .pushy not found"
+    exit 1
+fi
+
+if [ "$1" = "" ]; then 
+    echo "pushy-add: error: missing file names"
+    exit 1
+fi 
+branch=$(cat ".pushy/currBranches.txt")
+
+branchPath=".pushy/HEAD/$branch/index"
+
+if [ ! -d "$branchPath" ]; then 
+        mkdir -p "$branchPath"
+fi
+
+for file in "$@"; do  
+    if [ ! -f "$file" ] && [ ! -f "$branchPath/$file" ]; then 
+        echo "pushy-add: error: can not open '$file'"
+        exit 1
+    fi
+
+
+done
+
+
+for file in "$@"
+do
+    # Case 1: file exists in index but not directory -> remove from index
+    if [ ! -f "$file" ] && [ -f "$branchPath/$file" ]
+    then
+        rm "$branchPath/$file"
+    # case 2: file exists in directory and index -> add to index
+    else
+        cp "$file" "$branchPath/$file"
+        touch "$file" "$branchPath/$file"
+    fi
+done

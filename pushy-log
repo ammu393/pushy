@@ -1,0 +1,16 @@
+#!/bin/dash
+
+
+if [ ! -d ".pushy" ]; then 
+    echo "pushy-log: error: pushy repository directory .pushy not found"
+    exit 1
+fi
+
+if [ "$#" -gt 0 ]; then 
+    echo "usage: pushy-log"
+    exit 1
+fi
+
+currBranch="HEAD/$(cat ".pushy/currBranches.txt")"
+# print the commit log
+tac ".pushy/$currBranch/commits.txt"

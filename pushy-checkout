@@ -1,0 +1,36 @@
+#!/bin/dash
+
+if [ ! -d ".pushy" ]; then
+    echo "pushy-checkout: error: pushy repository directory .pushy not found"
+    exit 1
+fi
+
+#branch doesn't exist
+if [ ! -d ".pushy/HEAD/$1" ]; then
+    echo "pushy-checkout: error: unknown branch '$1'"
+    exit 1
+fi
+
+
+#missing arguments
+if [ "$#" -gt 1 ]; then
+    echo "usage: pushy-checkout <branch>"
+    exit 1
+fi
+#already on the branch
+branch="HEAD/$(cat ".pushy/currBranches.txt")"
+if [ HEAD/$1 = $branch ]; then
+    echo "Already on '$1'"
+    exit 1
+fi
+
+
+#the current branch has no changes staged
+commitDiff=$(diff ".pushy/$branch/commits.txt" ".pushy/HEAD/$1/commits.txt")
+if [ "$commitDiff" = "" ]; then
+    echo "Switched to branch '$1'"
+    echo "$1" > ".pushy/currBranches.txt"
+    exit 0
+fi
+echo "Switched to branch '$1'"
+echo "$1" > ".pushy/currBranches.txt"

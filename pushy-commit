@@ -1,0 +1,94 @@
+#!/bin/dash
+
+if [ ! -d ".pushy" ]; then 
+    echo "pushy-commit: error: pushy repository directory .pushy not found"
+    exit 1
+fi 
+
+#When missing message argument
+if [ "$1" = "-a" ]; then
+    if [ "$2" = "" ] || [ "$3" = "" ]; then
+        echo "usage: pushy-commit [-a] -m commit-message"
+        exit 1
+    fi
+else 
+    if [ "$2" = "" ]; then
+        echo "usage: pushy-commit [-a] -m commit-message"
+        exit 1
+    fi
+fi
+
+
+branch=$(cat ".pushy/currBranches.txt")
+
+branchPath=".pushy/HEAD/$branch"
+
+aFlag=false
+
+if [ "$1" = "-m" ]; then
+    msg="$2"
+elif [ "$1" = "-a" ] && [ "$2" = "-m" ]; then 
+    msg="$3"
+    aFlag=true
+fi
+
+if [ "$aFlag" = true ]; then 
+    for rootFile in *
+        do 
+            for indexFile in "$branchPath/index"/*
+                do 
+                    if [ "$indexFile" = "$branchPath/index/$rootFile" ]
+                        then
+                            cp "$rootFile" "$branchPath/index/"
+                    fi
+            done
+    done
+
+fi
+
+
+if [ ! -s "$branchPath/commits.txt" ]; then
+    echo "0 $msg" >> "$branchPath/commits.txt"
+    echo "Committed as commit 0"
+    num=0  # Set num to 0 for the first commit
+else 
+    num=$(tail -1 "$branchPath/commits.txt" | cut -d ' ' -f1)
+    needToCommit=False
+    for files in "$branchPath/index"/*; do 
+        if [ -f "$branchPath/staged$num/$(basename "$files")" ]; then 
+            dif=$(diff "$files" "$branchPath/staged$num/$(basename "$files")")
+            if [ "$dif" != "" ]; then 
+                needToCommit=True
+                break
+            fi
+        else # no file exists in the commit
+            needToCommit=True
+            break
+        fi
+    done
+
+    for files in "$branchPath/staged$num/"/*; do
+        if [ ! -f "$branchPath/index/$(basename "$files")" ]; then
+            needToCommit=True
+            break
+        fi
+    done 
+
+    # When there is nothing to commit - ERROR msg
+    if [ $needToCommit = False ]; then
+        echo "nothing to commit"
+        exit 1
+    else 
+        num=$((num + 1))  # Increment num for the new commit
+        echo "$num $msg" >> "$branchPath/commits.txt"
+        echo "Committed as commit $num"
+    fi
+fi
+
+# Normal saving in commit directory
+mkdir "$branchPath/staged$num"
+for files in "$branchPath/index"/*; do
+    if [ -f "$files" ]; then
+        cat "$files" > "$branchPath/staged$num/$(basename "$files")"
+    fi
+done

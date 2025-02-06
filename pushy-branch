@@ -1,0 +1,145 @@
+#!/bin/dash
+
+#if no init repository
+if [ ! -d ".pushy" ]; then
+    echo "pushy-branch: error: pushy repository directory .pushy not found"
+    exit 1
+fi
+
+#missing arguments
+if [ "$#" = 2 ] && [ "$1" != "-d" ]; then
+    echo "usage: pushy-branch [-d] <branch>"
+    exit 1
+elif [ "$#" -gt 2 ]; then
+    echo "usage: pushy-branch [-d] <branch>"
+    exit 1
+fi
+
+branch=$(cat ".pushy/currBranches.txt")
+branchPath=".pushy/HEAD/$branch"
+last=$(tail -1 "$branchPath/commits.txt" | cut -d ' ' -f1)
+#if there hasn't been a commit before
+if [ ! -d "$branchPath/staged$last" ]; then
+    echo "pushy-branch: error: this command can not be run until after the first commit"
+    exit 1
+fi
+
+
+#listing branches
+if [ "$#" -eq 0 ]; then
+    for branches in ".pushy/HEAD"/*; do
+        basename "$branches"
+    done | sort 
+    exit 0
+fi
+
+#create branches
+if [ "$#" = 1 ]; then
+    newBranch="$1"
+    #check if branch already exists
+    if [ -d ".pushy/HEAD/$newBranch" ]; then
+        echo "pushy-branch: error: branch '$newBranch' already exists"
+        exit 1
+    fi
+
+    mkdir .pushy/HEAD/"$newBranch"
+    mkdir .pushy/HEAD/"$newBranch"/index
+    mkdir .pushy/HEAD/"$newBranch"/working
+    touch .pushy/HEAD/"$newBranch"/commits.txt
+    cat "$branchPath/commits.txt" > ".pushy/HEAD/$newBranch/commits.txt"
+
+    cp -R "$branchPath/index" ".pushy/HEAD/$newBranch/"
+    start=0
+    while [ "$start" -le "$last" ]; do
+        cp -R "$branchPath/staged$start" ".pushy/HEAD/$newBranch/"
+        start=$((start + 1))
+    done
+    exit 0
+fi
+
+#delete branches
+if [ "$1" = "-d" ]; then
+    newBranch="$2"
+    if [ "$newBranch" = "master" ]; then
+        echo "pushy-branch: error: can not delete branch 'master': default branch"
+        exit 1
+    fi
+    if [ ! -d ".pushy/HEAD/$newBranch" ]; then
+        echo "pushy-branch: error: branch '$newBranch' doesn't exist"
+        exit 1
+    fi
+    rm -r ".pushy/HEAD/$newBranch"
+    echo "Deleted branch '$newBranch'"
+fi#!/bin/dash
+
+#if no init repository
+if [ ! -d ".pushy" ]; then
+    echo "pushy-branch: error: pushy repository directory .pushy not found"
+    exit 1
+fi
+
+#missing arguments
+if [ "$#" = 2 ] && [ "$1" != "-d" ]; then
+    echo "usage: pushy-branch [-d] <branch>"
+    exit 1
+elif [ "$#" -gt 2 ]; then
+    echo "usage: pushy-branch [-d] <branch>"
+    exit 1
+fi
+
+branch=$(cat ".pushy/currBranches.txt")
+branchPath=".pushy/HEAD/$branch"
+last=$(tail -1 "$branchPath/commits.txt" | cut -d ' ' -f1)
+#if there hasn't been a commit before
+if [ ! -d "$branchPath/staged$last" ]; then
+    echo "pushy-branch: error: this command can not be run until after the first commit"
+    exit 1
+fi
+
+
+#listing branches
+if [ "$#" -eq 0 ]; then
+    for branches in ".pushy/HEAD"/*; do
+        basename "$branches"
+    done | sort 
+    exit 0
+fi
+
+#create branches
+if [ "$#" = 1 ]; then
+    newBranch="$1"
+    #check if branch already exists
+    if [ -d ".pushy/HEAD/$newBranch" ]; then
+        echo "pushy-branch: error: branch '$newBranch' already exists"
+        exit 1
+    fi
+
+    mkdir .pushy/HEAD/"$newBranch"
+    mkdir .pushy/HEAD/"$newBranch"/index
+    mkdir .pushy/HEAD/"$newBranch"/working
+    touch .pushy/HEAD/"$newBranch"/commits.txt
+    cat "$branchPath/commits.txt" > ".pushy/HEAD/$newBranch/commits.txt"
+
+    cp -R "$branchPath/index" ".pushy/HEAD/$newBranch/"
+    start=0
+    while [ "$start" -le "$last" ]; do
+        cp -R "$branchPath/staged$start" ".pushy/HEAD/$newBranch/"
+        start=$((start + 1))
+    done
+    exit 0
+fi
+
+#delete branches
+if [ "$1" = "-d" ]; then
+    newBranch="$2"
+    if [ "$newBranch" = "master" ]; then
+        echo "pushy-branch: error: can not delete branch 'master': default branch"
+        exit 1
+    fi
+    if [ ! -d ".pushy/HEAD/$newBranch" ]; then
+        echo "pushy-branch: error: branch '$newBranch' doesn't exist"
+        exit 1
+    fi
+    rm -r ".pushy/HEAD/$newBranch"
+    echo "Deleted branch '$newBranch'"
+fi

@@ -1,0 +1,116 @@
+#!/bin/dash
+
+# removes file from index OR curr directory and index 
+
+# --cached option is specified only removes work from index
+
+if [ ! -d ".pushy" ]; then 
+    echo "pushy-remove: error: pushy repository directory .pushy not found"
+    exit 1
+fi
+
+#incorrect arguments
+if [ "$2" = "--force" ]; then
+    echo "usage: pushy-rm [--force] [--cached] <filenames>"
+    exit 1
+fi
+
+
+branch=$(cat ".pushy/currBranches.txt")
+
+branchPath=".pushy/HEAD/$branch"
+
+
+# error cases:
+# file does not exist in the repo 
+for arg in $@; do
+    if [ "$arg" != "--cached" ] && [ "$arg" != "--force" ]; then 
+        if [ ! -f "$branchPath/index/$arg" ]; then 
+            echo "pushy-rm: error: '$arg' is not in the pushy repository"
+            exit 1
+        fi
+    fi
+done
+
+# remove files if there is no force but cached argument 
+
+if [ "$1" = "--cached" ]; then
+    for fileName3 in "$@"; do
+        if [ "$fileName3" = "--cached" ] || [ "$fileName3" = "--force" ]; then
+            continue
+        else
+            indexDiff=$(diff "$fileName3" "$branchPath/index/$fileName3")     
+            if [ "$indexDiff" != "" ]; then
+                lastNum=$(tail -1 "$branchPath/commits.txt" | cut -c 1-1)
+                if [ ! -f "$branchPath/staged$lastNum/$fileName3" ]; then
+                    echo "pushy-rm: error: '$fileName3' in index is different to both the working file and the repository"
+                    exit 1
+                else 
+                    commitDiff=$(diff "$branchPath/index/$fileName3" "$branchPath/staged$lastNum/$fileName3")
+                    if [ "$commitDiff" = "" ]; then
+                        rm "$branchPath/index/$fileName3"
+                    else 
+                        echo "pushy-rm: error: '$fileName3' in index is different to both the working file and the repository"
+                        exit 1
+                    fi
+                fi
+            else 
+                rm "$branchPath/index/$fileName3"
+            fi
+        fi
+    done
+fi
+
+#remove files if neither force or cached arg 
+if [ "$1" != "--force" ] && [ "$1" != "--cached" ] && [ "$2" != "--cached" ]; then 
+    for file in "$@"; do 
+        latestNum=$(tail -1 "$branchPath/commits.txt" | cut -d ' ' -f1)
+        indexRootDiff=$(diff "$file" "$branchPath/index/$file" 2>/dev/null || true)
+        stagedIndexDiff=$(diff "$branchPath/staged$latestNum/$file" "$branchPath/index/$file" 2>/dev/null || true)
+        stagedRootDiff=$(diff "$branchPath/staged$latestNum/$file" "$file" 2>/dev/null || true)
+        # file in index is different from both working file and repo
+        if ([ ! -f "$branchPath/staged$latestNum/$file" ] || [ "$stagedIndexDiff" != "" ]) && ([ -f $file ] && [ "$indexRootDiff" != "" ]); then
+            echo "pushy-rm: error: '$file' in index is different to both the working file and the repository" 
+            exit 1
+        # file has no staged changes in the index
+        elif [ ! -f "$branchPath/staged$latestNum/$file" ] || [ "$stagedIndexDiff" != "" ]; then 
+            echo "pushy-rm: error: '$file' has staged changes in the index"
+            exit 1
+           # file in index is different from both working file and repo
+        elif [ -f "$branchPath/staged$latestNum/$file" ] && [ -f "$file" ] && [ "$stagedRootDiff" != "" ]; then
+            echo "pushy-rm: error: '$file' in the repository is different to the working file" >&2
+            exit 1
+        fi
+        rm "$branchPath/index/$file"
+        rm "$file"
+    done
+fi           
+
+
+
+
+#remove file if there is force argument
+if [ "$1" = "--force" ]; then
+    if [ "$2" != "--cached" ]; then
+        for file in "$@"; do
+            if [ "$file" = "--cached" ] || [ "$file" = "--force" ]; then
+                continue
+            else
+                rm "$branchPath/index/$file"
+                rm "$file"
+            fi
+        done
+    else 
+        for file in "$@"; do
+            if [ "$file" = "--cached" ] || [ "$file" = "--force" ]; then
+                continue
+            else
+                rm "$branchPath/index/$file"
+            fi
+        done
+    fi
+fi
+
+
+
+
